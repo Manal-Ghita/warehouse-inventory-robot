@@ -1,0 +1,11 @@
+# python
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+data/raw/
+
+# workspace ros 2
+build/
+install/
+log/
