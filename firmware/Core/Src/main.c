@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "treuil.h"
+#include "board.h"
 
 /* USER CODE END Includes */
 
@@ -106,6 +107,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
   treuil_init();
 
+  // prise d'origine, 10 s max
+  int ok = treuil_origine(10000);
+  char msg[32];
+  int n = snprintf(msg, sizeof(msg), ok ? "origine ok\r\n" : "origine echec\r\n");
+  HAL_UART_Transmit(&huart2, (uint8_t *)msg, n, 100);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -116,16 +123,10 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	// avance 2 s, pause, recule 2 s, pause
-	treuil_commande(0.3f);
-	for (int i = 0; i < 10; i++) { envoyer_position(); HAL_Delay(200); }
-	treuil_stop();
-	HAL_Delay(1000);
+	  envoyer_position();
+	  HAL_Delay(500);
 
-	treuil_commande(-0.3f);
-	for (int i = 0; i < 10; i++) { envoyer_position(); HAL_Delay(200); }
-	treuil_stop();
-	HAL_Delay(1000);
+
   }
   /* USER CODE END 3 */
 }
@@ -350,6 +351,24 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_11;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB5 */

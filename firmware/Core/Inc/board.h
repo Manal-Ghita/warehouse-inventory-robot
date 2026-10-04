@@ -18,4 +18,16 @@
 #define TREUIL_EN_INACTIF GPIO_PIN_RESET
 #endif
 
+#ifdef CIBLE_BANC_DE_TEST
+// fin de course bas simulee par sw2, appuye = 0
+#define FDC_BAS_PORT   GPIOB
+#define FDC_BAS_PIN    GPIO_PIN_11
+#define FDC_ACTIF      GPIO_PIN_RESET
+#else
+// contact nf : butee atteinte = 1
+#define FDC_BAS_PORT   GPIOB
+#define FDC_BAS_PIN    GPIO_PIN_10
+#define FDC_ACTIF      GPIO_PIN_SET
+#endif
+
 #endif
