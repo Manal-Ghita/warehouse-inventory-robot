@@ -1,5 +1,6 @@
 #include "treuil.h"
 #include "board.h"
+#include "plafond.h"
 
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim5;
@@ -138,6 +139,16 @@ void treuil_maj(void){
     treuil_stop();
     actif = 0;
     erreur = TREUIL_FDC_HAUT;
+    return;
+  }
+
+  // obstacle au-dessus en montee : arret immediat
+  // 0 = pas encore de mesure, on l'ignore
+  uint16_t d = plafond_distance_mm();
+  if (u > 0.0f && d > 0 && d < PLAFOND_MARGE_MM) {
+    treuil_stop();
+    actif = 0;
+    erreur = TREUIL_PLAFOND;
     return;
   }
 

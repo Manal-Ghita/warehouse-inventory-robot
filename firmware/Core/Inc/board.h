@@ -57,4 +57,7 @@
 #define BATT_SEUIL_BAS      24.0f
 #define BATT_SEUIL_CRITIQUE 22.4f
 
+// degagement minimal au-dessus du mat
+#define PLAFOND_MARGE_MM  200
+
 #endif

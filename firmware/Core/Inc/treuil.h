@@ -8,6 +8,7 @@ typedef enum {
   TREUIL_BLOCAGE,
   TREUIL_FDC_HAUT,
   TREUIL_ARRET_URGENCE,
+  TREUIL_PLAFOND,
 } treuil_erreur_t;
 
 void treuil_init(void);
@@ -19,5 +20,6 @@ int treuil_aller_a(int32_t cible);        // 1 si acceptee, 0 si refusee
 void treuil_maj(void);                    // appelee a 100 hz
 treuil_erreur_t treuil_erreur(void);
 void treuil_acquitter(void);
+
 
 #endif
