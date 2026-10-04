@@ -39,4 +39,16 @@
 #define TREUIL_POS_MAX  20000   // a recalculer avec le vrai treuil
 #endif
 
+#ifdef CIBLE_BANC_DE_TEST
+// arret d'urgence simule par le bouton bleu b1, appuye = 0
+#define AU_PORT   GPIOC
+#define AU_PIN    GPIO_PIN_13
+#define AU_ACTIF  GPIO_PIN_RESET
+#else
+// sortie de l'optocoupleur : arret d'urgence enfonce = 1
+#define AU_PORT   GPIOC
+#define AU_PIN    GPIO_PIN_8
+#define AU_ACTIF  GPIO_PIN_SET
+#endif
+
 #endif

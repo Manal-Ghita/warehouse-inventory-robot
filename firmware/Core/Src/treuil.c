@@ -20,22 +20,19 @@ static volatile treuil_erreur_t erreur = TREUIL_OK;
 static int32_t pos_controle = 0;   // position au dernier controle de blocage
 static uint32_t nb_appels = 0;
 
-void treuil_stop(void)
-{
+void treuil_stop(void){
   __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
   HAL_GPIO_WritePin(TREUIL_EN_PORT, TREUIL_EN_PIN, TREUIL_EN_INACTIF);
 }
 
-void treuil_init(void)
-{
+void treuil_init(void){
   // moteur coupe avant tout
   treuil_stop();
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
 }
 
-void treuil_commande(float consigne)
-{
+void treuil_commande(float consigne){
   // on borne entre -1 et 1
   if (consigne > 1.0f) consigne = 1.0f;
   if (consigne < -1.0f) consigne = -1.0f;
@@ -50,18 +47,15 @@ void treuil_commande(float consigne)
   HAL_GPIO_WritePin(TREUIL_EN_PORT, TREUIL_EN_PIN, TREUIL_EN_ACTIF);
 }
 
-int32_t treuil_position(void)
-{
+int32_t treuil_position(void){
   return (int32_t)__HAL_TIM_GET_COUNTER(&htim5);
 }
 
-static int fdc_bas_atteint(void)
-{
+static int fdc_bas_atteint(void){
   return HAL_GPIO_ReadPin(FDC_BAS_PORT, FDC_BAS_PIN) == FDC_ACTIF;
 }
 
-static int fdc_haut_atteint(void)
-{
+static int fdc_haut_atteint(void){
   return HAL_GPIO_ReadPin(FDC_HAUT_PORT, FDC_HAUT_PIN) == FDC_ACTIF;
 }
 
@@ -86,8 +80,7 @@ int treuil_origine(uint32_t timeout_ms)
   return 1;
 }
 
-int treuil_aller_a(int32_t c)
-{
+int treuil_aller_a(int32_t c){
   // pas de mouvement tant qu'une erreur n'est pas acquittee
   if (erreur != TREUIL_OK) return 0;
   // cible hors course : refusee
@@ -102,8 +95,20 @@ int treuil_aller_a(int32_t c)
   return 1;
 }
 
-void treuil_maj(void)
-{
+
+static int au_actif(void){
+  return HAL_GPIO_ReadPin(AU_PORT, AU_PIN) == AU_ACTIF;
+}
+
+
+void treuil_maj(void){
+  // arret d'urgence : on coupe et on memorise, meme a l'arret
+  if (au_actif()) {
+    treuil_stop();
+    actif = 0;
+    erreur = TREUIL_ARRET_URGENCE;
+    return;
+  }
   if (!actif) return;
 
   int32_t pos = treuil_position();
@@ -160,12 +165,11 @@ void treuil_maj(void)
   treuil_commande(u);
 }
 
-treuil_erreur_t treuil_erreur(void)
-{
+treuil_erreur_t treuil_erreur(void){
   return erreur;
 }
 
-void treuil_acquitter(void)
-{
+void treuil_acquitter(void){
   erreur = TREUIL_OK;
 }
+
