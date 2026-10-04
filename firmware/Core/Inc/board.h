@@ -51,4 +51,10 @@
 #define AU_ACTIF  GPIO_PIN_SET
 #endif
 
+// pont r4 = 100k, r5 = 12k
+#define BATT_RAPPORT        ((100.0f + 12.0f) / 12.0f)
+// lifepo4 8s : 29,2 v pleine, ~20 v vide
+#define BATT_SEUIL_BAS      24.0f
+#define BATT_SEUIL_CRITIQUE 22.4f
+
 #endif

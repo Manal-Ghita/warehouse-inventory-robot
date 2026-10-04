@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include "treuil.h"
 #include "board.h"
+#include "batterie.h"
 
 /* USER CODE END Includes */
 
@@ -43,6 +44,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim6;
@@ -60,6 +63,7 @@ static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -109,18 +113,17 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM5_Init();
   MX_TIM6_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   treuil_init();
 
-  HAL_TIM_Base_Start_IT(&htim6);
-  // prise d'origine, 10 s max
-  int ok = treuil_origine(10000);
-  // origine ratee : position inconnue, on ne bouge plus
-  if (!ok) {
-    char msg[] = "origine echec, arret\r\n";
-    HAL_UART_Transmit(&huart2, (uint8_t *)msg, sizeof(msg) - 1, 100);
-    while (1) {}
-  }
+  // tension simulee par le potentiometre
+  char buf[40];
+  int v10 = (int)(batterie_tension() * 10);
+  int n = snprintf(buf, sizeof(buf), "batt=%d.%d V etat=%d\r\n",
+                   v10 / 10, v10 % 10, (int)batterie_etat());
+  HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
+  HAL_Delay(500);
 
 
   /* USER CODE END 2 */
@@ -134,18 +137,13 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 
-	  // cible lointaine pour avoir le temps de tester
-	  if (!treuil_aller_a(15000)) {
-	    char m[] = "cible refusee\r\n";
-	    HAL_UART_Transmit(&huart2, (uint8_t *)m, sizeof(m) - 1, 100);
-	  }
-	  for (int i = 0; i < 20; i++) {
-	    char buf[40];
-	    int n = snprintf(buf, sizeof(buf), "pos=%ld err=%d\r\n",
-	                     (long)treuil_position(), (int)treuil_erreur());
-	    HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
-	    HAL_Delay(500);
-	  }
+	  // tension simulee par le potentiometre
+	  char buf[40];
+	  int v10 = (int)(batterie_tension() * 10);
+	  int n = snprintf(buf, sizeof(buf), "batt=%d.%d V etat=%d\r\n",
+	                   v10 / 10, v10 % 10, (int)batterie_etat());
+	  HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
+	  HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
@@ -198,6 +196,73 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
