@@ -26,6 +26,7 @@
 #include "board.h"
 #include "batterie.h"
 #include "signal.h"
+#include "can_bus.h"
 
 /* USER CODE END Includes */
 
@@ -46,6 +47,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+
+CAN_HandleTypeDef hcan1;
 
 IWDG_HandleTypeDef hiwdg;
 
@@ -73,6 +76,7 @@ static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_IWDG_Init(void);
+static void MX_CAN1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -126,20 +130,13 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM8_Init();
   MX_IWDG_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
   treuil_init();
   batterie_init();
   signal_init();
+  can_init();
 
-  // redemarrage provoque par le watchdog ?
-  if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
-    char m[] = "redemarrage par watchdog\r\n";
-    HAL_UART_Transmit(&huart2, (uint8_t *)m, sizeof(m) - 1, 100);
-  }
-  __HAL_RCC_CLEAR_RESET_FLAGS();
-
-  char d[] = "demarrage\r\n";
-  HAL_UART_Transmit(&huart2, (uint8_t *)d, sizeof(d) - 1, 100);
 
   /* USER CODE END 2 */
 
@@ -149,18 +146,26 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-	  // on rassure le watchdog toutes les 100 ms pendant 3 s
-	  for (int i = 0; i < 30; i++) {
+	    /* USER CODE BEGIN 3 */
 	    HAL_IWDG_Refresh(&hiwdg);
-	    HAL_Delay(100);
+
+	    // envoie un compteur et affiche ce qui revient
+	    static uint8_t compteur = 0;
+	    uint8_t tx[1] = { compteur++ };
+	    can_envoyer(0x123, tx, 1);
+	    HAL_Delay(10);
+
+	    uint16_t id; uint8_t rx[8]; uint8_t len;
+	    if (can_recu(&id, rx, &len)) {
+	      char buf[40];
+	      int n = snprintf(buf, sizeof(buf), "recu id=0x%X val=%d\r\n", id, rx[0]);
+	      HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
+	    }
+	    HAL_Delay(240);
+	    HAL_IWDG_Refresh(&hiwdg);
+	    HAL_Delay(250);
 	  }
-	  // puis on simule un plantage
-	  char p[] = "plantage simule\r\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)p, sizeof(p) - 1, 100);
-	  while (1) {}
-  }
-  /* USER CODE END 3 */
+	  /* USER CODE END 3 */
 }
 
 /**
@@ -278,6 +283,43 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN1_Init(void)
+{
+
+  /* USER CODE BEGIN CAN1_Init 0 */
+
+  /* USER CODE END CAN1_Init 0 */
+
+  /* USER CODE BEGIN CAN1_Init 1 */
+
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 10;
+  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
+
+  /* USER CODE END CAN1_Init 2 */
 
 }
 
