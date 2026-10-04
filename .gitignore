@@ -5,6 +5,10 @@ __pycache__/
 
 data/raw/
 
+# images generees par la vision
+vision/etiquettes/
+vision/*.png
+
 # stm32cubeide
 firmware/**/Debug/
 firmware/**/Release/
