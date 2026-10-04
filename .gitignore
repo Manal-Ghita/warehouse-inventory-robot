@@ -5,7 +5,15 @@ __pycache__/
 
 data/raw/
 
+# stm32cubeide
+firmware/**/Debug/
+firmware/**/Release/
+
 # workspace ros 2
 build/
 install/
 log/
+
+# micro-ros
+firmware/micro_ros_stm32cubemx_utils/microros_static_library_ide/libmicroros/
+

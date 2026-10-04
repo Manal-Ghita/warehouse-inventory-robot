@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -28,6 +29,12 @@
 #include "signal.h"
 #include "can_bus.h"
 #include "plafond.h"
+
+#include <rcl/rcl.h>
+#include <rclc/rclc.h>
+#include <rmw_microros/rmw_microros.h>
+#include <uxr/client/transport.h>
+#include <std_msgs/msg/int32.h>
 
 /* USER CODE END Includes */
 
@@ -63,7 +70,16 @@ TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 3000 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE BEGIN PV */
 volatile uint32_t tours = 0;
 
@@ -72,6 +88,7 @@ volatile uint32_t tours = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
@@ -83,6 +100,8 @@ static void MX_IWDG_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART3_UART_Init(void);
+void StartDefaultTask(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -100,6 +119,16 @@ static void envoyer_position(void){
 	int n = snprintf(buf, sizeof(buf), "pos=%ld\r\n", (long)treuil_position());
 	HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
 }
+
+bool cubemx_transport_open(struct uxrCustomTransport *transport);
+bool cubemx_transport_close(struct uxrCustomTransport *transport);
+size_t cubemx_transport_write(struct uxrCustomTransport *transport, const uint8_t *buf, size_t len, uint8_t *err);
+size_t cubemx_transport_read(struct uxrCustomTransport *transport, uint8_t *buf, size_t len, int timeout, uint8_t *err);
+
+void *microros_allocate(size_t size, void *state);
+void microros_deallocate(void *pointer, void *state);
+void *microros_reallocate(void *pointer, size_t size, void *state);
+void *microros_zero_allocate(size_t number_of_elements, size_t size_of_element, void *state);
 
 /* USER CODE END 0 */
 
@@ -132,6 +161,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
@@ -154,6 +184,45 @@ int main(void)
 
 
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+
+  // tache non creee : manque de memoire, on fait sonner le buzzer
+  if (defaultTaskHandle == NULL) signal_buzzer(1);
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -748,6 +817,25 @@ static void MX_USART3_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+  /* DMA1_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -826,7 +914,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -836,12 +924,85 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-  if (htim->Instance == TIM6) treuil_maj();
-}
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+	  // transport micro-ros sur usart2 (usb du st-link)
+	  rmw_uros_set_custom_transport(true, (void *)&huart2,
+	      cubemx_transport_open, cubemx_transport_close,
+	      cubemx_transport_write, cubemx_transport_read);
+
+	  // allocateurs freertos
+	  rcl_allocator_t a = rcutils_get_zero_initialized_allocator();
+	  a.allocate = microros_allocate;
+	  a.deallocate = microros_deallocate;
+	  a.reallocate = microros_reallocate;
+	  a.zero_allocate = microros_zero_allocate;
+	  rcutils_set_default_allocator(&a);
+
+	  // on attend l'agent sans laisser le watchdog redemarrer la carte
+	  while (rmw_uros_ping_agent(100, 1) != RMW_RET_OK) {
+	    HAL_IWDG_Refresh(&hiwdg);
+	    signal_feu(!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7));  // led qui clignote = en attente
+	  }
+	  signal_feu(1);  // led fixe = connecte
+
+	  rcl_allocator_t allocator = rcl_get_default_allocator();
+	  rclc_support_t support;
+	  rcl_node_t node;
+	  rcl_publisher_t pub;
+	  std_msgs__msg__Int32 msg;
+
+	  rclc_support_init(&support, 0, NULL, &allocator);
+	  HAL_IWDG_Refresh(&hiwdg);
+	  rclc_node_init_default(&node, "robot_fw", "", &support);
+	  HAL_IWDG_Refresh(&hiwdg);
+	  rclc_publisher_init_default(&pub, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "treuil/position");
+	  HAL_IWDG_Refresh(&hiwdg);
+
+	  for (;;) {
+	    HAL_IWDG_Refresh(&hiwdg);
+	    msg.data = treuil_position();
+	    rcl_publish(&pub, &msg, NULL);
+	    osDelay(100);
+	  }
+  /* USER CODE END 5 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM7 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM7)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  if (htim->Instance == TIM6) treuil_maj();
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
