@@ -1,3 +1,6 @@
+#define FDC_HAUT_PORT  GPIOA
+#define FDC_HAUT_PIN   GPIO_PIN_15
+
 #ifndef BOARD_H
 #define BOARD_H
 
@@ -28,6 +31,12 @@
 #define FDC_BAS_PORT   GPIOB
 #define FDC_BAS_PIN    GPIO_PIN_10
 #define FDC_ACTIF      GPIO_PIN_SET
+#endif
+
+#ifdef CIBLE_BANC_DE_TEST
+#define TREUIL_POS_MAX  20000   // arbitraire sur le banc
+#else
+#define TREUIL_POS_MAX  20000   // a recalculer avec le vrai treuil
 #endif
 
 #endif

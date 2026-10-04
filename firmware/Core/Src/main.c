@@ -134,11 +134,18 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 
-	  treuil_aller_a(5000);
-	  for (int i = 0; i < 8; i++) { envoyer_position(); HAL_Delay(500); }
-	  treuil_aller_a(1000);
-	  for (int i = 0; i < 8; i++) { envoyer_position(); HAL_Delay(500); }
-
+	  // cible lointaine pour avoir le temps de tester
+	  if (!treuil_aller_a(15000)) {
+	    char m[] = "cible refusee\r\n";
+	    HAL_UART_Transmit(&huart2, (uint8_t *)m, sizeof(m) - 1, 100);
+	  }
+	  for (int i = 0; i < 20; i++) {
+	    char buf[40];
+	    int n = snprintf(buf, sizeof(buf), "pos=%ld err=%d\r\n",
+	                     (long)treuil_position(), (int)treuil_erreur());
+	    HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
+	    HAL_Delay(500);
+	  }
   }
   /* USER CODE END 3 */
 }
