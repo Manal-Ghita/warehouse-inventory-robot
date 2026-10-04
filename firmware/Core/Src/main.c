@@ -36,6 +36,10 @@
 #include <uxr/client/transport.h>
 #include <std_msgs/msg/int32.h>
 
+#include <rclc/executor.h>
+#include <std_msgs/msg/float32.h>
+#include <std_msgs/msg/empty.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -118,6 +122,18 @@ static void envoyer_position(void){
 	char buf[32];
 	int n = snprintf(buf, sizeof(buf), "pos=%ld\r\n", (long)treuil_position());
 	HAL_UART_Transmit(&huart2, (uint8_t *)buf, n, 100);
+}
+
+static void cb_cible(const void *m)
+{
+  const std_msgs__msg__Int32 *c = (const std_msgs__msg__Int32 *)m;
+  treuil_aller_a(c->data);
+}
+
+static void cb_acquitter(const void *m)
+{
+  (void)m;
+  treuil_acquitter();
 }
 
 bool cubemx_transport_open(struct uxrCustomTransport *transport);
@@ -960,22 +976,57 @@ void StartDefaultTask(void *argument)
 	  rcl_allocator_t allocator = rcl_get_default_allocator();
 	  rclc_support_t support;
 	  rcl_node_t node;
-	  rcl_publisher_t pub;
-	  std_msgs__msg__Int32 msg;
 
 	  rclc_support_init(&support, 0, NULL, &allocator);
 	  HAL_IWDG_Refresh(&hiwdg);
 	  rclc_node_init_default(&node, "robot_fw", "", &support);
 	  HAL_IWDG_Refresh(&hiwdg);
-	  rclc_publisher_init_default(&pub, &node,
+
+	  // publications
+	  rcl_publisher_t pub_pos, pub_err, pub_batt, pub_plafond;
+	  rclc_publisher_init_best_effort(&pub_pos, &node,
 	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "treuil/position");
+	  rclc_publisher_init_default(&pub_err, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "treuil/erreur");
+	  rclc_publisher_init_default(&pub_batt, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), "batterie/tension");
+	  rclc_publisher_init_default(&pub_plafond, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "plafond/distance");
 	  HAL_IWDG_Refresh(&hiwdg);
+
+	  // abonnements
+	  rcl_subscription_t sub_cible, sub_acq;
+	  std_msgs__msg__Int32 msg_cible;
+	  std_msgs__msg__Empty msg_acq;
+	  rclc_subscription_init_default(&sub_cible, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "treuil/cible");
+	  rclc_subscription_init_default(&sub_acq, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Empty), "treuil/acquitter");
+	  HAL_IWDG_Refresh(&hiwdg);
+
+	  // l'executor appelle les callbacks quand un message arrive
+	  rclc_executor_t ex = rclc_executor_get_zero_initialized_executor();
+	  rclc_executor_init(&ex, &support.context, 2, &allocator);
+	  rclc_executor_add_subscription(&ex, &sub_cible, &msg_cible, &cb_cible, ON_NEW_DATA);
+	  rclc_executor_add_subscription(&ex, &sub_acq, &msg_acq, &cb_acquitter, ON_NEW_DATA);
+
+	  std_msgs__msg__Int32 m_int;
+	  std_msgs__msg__Float32 m_float;
+	  uint32_t n = 0;
 
 	  for (;;) {
 	    HAL_IWDG_Refresh(&hiwdg);
-	    msg.data = treuil_position();
-	    rcl_publish(&pub, &msg, NULL);
-	    osDelay(100);
+	    rclc_executor_spin_some(&ex, RCL_MS_TO_NS(10));
+
+	    // publication toutes les 100 ms
+	    if (++n >= 10) {
+	      n = 0;
+	      m_int.data = treuil_position();    (void)rcl_publish(&pub_pos, &m_int, NULL);
+	      m_int.data = treuil_erreur();      (void)rcl_publish(&pub_err, &m_int, NULL);
+	      m_int.data = plafond_distance_mm(); (void)rcl_publish(&pub_plafond, &m_int, NULL);
+	      m_float.data = batterie_tension(); (void)rcl_publish(&pub_batt, &m_float, NULL);
+	    }
+	    osDelay(1);
 	  }
   /* USER CODE END 5 */
 }
