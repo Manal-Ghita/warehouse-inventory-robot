@@ -4,6 +4,8 @@
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim5;
 
+volatile uint32_t nb_maj = 0;  // compteur de diagnostic
+
 void treuil_stop(void){
 	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 0);
 	HAL_GPIO_WritePin(TREUIL_EN_PORT, TREUIL_EN_PIN, TREUIL_EN_INACTIF);
@@ -57,4 +59,54 @@ int treuil_origine(uint32_t timeout_ms){
   treuil_stop();
   __HAL_TIM_SET_COUNTER(&htim5, 0);  // position zero = mat en bas
   return 1;
+}
+
+#define KP         0.0005f
+#define KI         0.0f
+#define KD         0.0f
+#define DT         0.01f   // 100 hz
+#define U_MAX      0.5f    // puissance max en asservissement
+#define U_MIN      0.2f    // en dessous le moteur cale
+#define TOLERANCE  20      // impulsions
+
+static volatile int32_t cible = 0;
+static volatile int actif = 0;
+static float integrale = 0.0f;
+static int32_t erreur_prec = 0;
+
+void treuil_aller_a(int32_t c)
+{
+  cible = c;
+  integrale = 0.0f;
+  erreur_prec = c - treuil_position();
+  actif = 1;
+}
+
+void treuil_maj(void){
+  nb_maj++;
+  if (!actif) return;
+
+  int32_t err = cible - treuil_position();
+
+  // assez pres : on coupe
+  if (err > -TOLERANCE && err < TOLERANCE) {
+    treuil_stop();
+    integrale = 0.0f;
+    erreur_prec = err;
+    return;
+  }
+
+  integrale += err * DT;
+  float deriv = (err - erreur_prec) / DT;
+  erreur_prec = err;
+
+  float u = KP * err + KI * integrale + KD * deriv;
+
+  // bornes haute et basse
+  if (u > U_MAX) u = U_MAX;
+  if (u < -U_MAX) u = -U_MAX;
+  if (u > 0.0f && u < U_MIN) u = U_MIN;
+  if (u < 0.0f && u > -U_MIN) u = -U_MIN;
+
+  treuil_commande(u);
 }

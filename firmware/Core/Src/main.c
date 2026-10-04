@@ -45,6 +45,7 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
 
@@ -58,12 +59,15 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+extern volatile uint32_t nb_maj;
+
 static void envoyer_position(void){
 	char buf[32];
 	int n = snprintf(buf, sizeof(buf), "pos=%ld\r\n", (long)treuil_position());
@@ -104,14 +108,20 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM2_Init();
   MX_TIM5_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   treuil_init();
 
+  HAL_TIM_Base_Start_IT(&htim6);
   // prise d'origine, 10 s max
   int ok = treuil_origine(10000);
-  char msg[32];
-  int n = snprintf(msg, sizeof(msg), ok ? "origine ok\r\n" : "origine echec\r\n");
-  HAL_UART_Transmit(&huart2, (uint8_t *)msg, n, 100);
+  // origine ratee : position inconnue, on ne bouge plus
+  if (!ok) {
+    char msg[] = "origine echec, arret\r\n";
+    HAL_UART_Transmit(&huart2, (uint8_t *)msg, sizeof(msg) - 1, 100);
+    while (1) {}
+  }
+
 
   /* USER CODE END 2 */
 
@@ -123,9 +133,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  envoyer_position();
-	  HAL_Delay(500);
 
+	  treuil_aller_a(5000);
+	  for (int i = 0; i < 8; i++) { envoyer_position(); HAL_Delay(500); }
+	  treuil_aller_a(1000);
+	  for (int i = 0; i < 8; i++) { envoyer_position(); HAL_Delay(500); }
 
   }
   /* USER CODE END 3 */
@@ -290,6 +302,44 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 7999;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 99;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -384,6 +434,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM6) treuil_maj();
+}
 
 /* USER CODE END 4 */
 
