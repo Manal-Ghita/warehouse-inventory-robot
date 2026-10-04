@@ -47,6 +47,8 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+IWDG_HandleTypeDef hiwdg;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim5;
@@ -70,6 +72,7 @@ static void MX_TIM6_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM8_Init(void);
+static void MX_IWDG_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -122,11 +125,22 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM3_Init();
   MX_TIM8_Init();
-
+  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   treuil_init();
   batterie_init();
   signal_init();
+
+  // redemarrage provoque par le watchdog ?
+  if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST)) {
+    char m[] = "redemarrage par watchdog\r\n";
+    HAL_UART_Transmit(&huart2, (uint8_t *)m, sizeof(m) - 1, 100);
+  }
+  __HAL_RCC_CLEAR_RESET_FLAGS();
+
+  char d[] = "demarrage\r\n";
+  HAL_UART_Transmit(&huart2, (uint8_t *)d, sizeof(d) - 1, 100);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -135,16 +149,18 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-	/* USER CODE BEGIN 3 */
-	    // feu et buzzer une demi-seconde, puis silence
-	    signal_feu(1);
-	    signal_buzzer(1);
-	    HAL_Delay(500);
-	    signal_feu(0);
-	    signal_buzzer(0);
-	    HAL_Delay(1500);
+    /* USER CODE BEGIN 3 */
+	  // on rassure le watchdog toutes les 100 ms pendant 3 s
+	  for (int i = 0; i < 30; i++) {
+	    HAL_IWDG_Refresh(&hiwdg);
+	    HAL_Delay(100);
 	  }
-	/* USER CODE END 3 */
+	  // puis on simule un plantage
+	  char p[] = "plantage simule\r\n";
+	  HAL_UART_Transmit(&huart2, (uint8_t *)p, sizeof(p) - 1, 100);
+	  while (1) {}
+  }
+  /* USER CODE END 3 */
 }
 
 /**
@@ -166,7 +182,8 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
@@ -261,6 +278,35 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief IWDG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG_Init 0 */
+
+  /* USER CODE END IWDG_Init 0 */
+
+  /* USER CODE BEGIN IWDG_Init 1 */
+
+  /* USER CODE END IWDG_Init 1 */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_32;
+  hiwdg.Init.Window = 4095;
+  hiwdg.Init.Reload = 499;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG_Init 2 */
+
+  /* USER CODE END IWDG_Init 2 */
 
 }
 
