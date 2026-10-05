@@ -137,4 +137,88 @@
   <xacro:segment nom="mat_1" parent="base_link" cote="0.10" origine_z="0.1"/>
   <xacro:segment nom="mat_2" parent="mat_1" cote="0.08" origine_z="0"/>
 
+    <!-- ===== capteurs ===== -->
+  <material name="bleu"><color rgba="0.1 0.3 0.8 1"/></material>
+
+  <!-- camera gemini 335 : boitier + repere optique -->
+  <xacro:macro name="camera" params="nom parent x y z yaw pitch:=0">
+    <link name="${nom}">
+      <visual>
+        <geometry><box size="0.025 0.09 0.03"/></geometry>
+        <material name="bleu"/>
+      </visual>
+      <collision>
+        <geometry><box size="0.025 0.09 0.03"/></geometry>
+      </collision>
+      <xacro:inertie_boite m="0.1" x="0.025" y="0.09" z="0.03"/>
+    </link>
+    <joint name="${nom}_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${nom}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="0 ${pitch} ${yaw}"/>
+    </joint>
+
+    <!-- convention des images : z devant, x a droite, y en bas -->
+    <link name="${nom}_optique"/>
+    <joint name="${nom}_optique_joint" type="fixed">
+      <parent link="${nom}"/>
+      <child link="${nom}_optique"/>
+      <origin rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- cinq cameras par cote, gauche (g) regarde +y, droite (d) regarde -y -->
+  <xacro:macro name="colonne_cameras" params="cote signe">
+    <!-- sur le corps : 0,5 m et 1,4 m du sol -->
+    <xacro:camera nom="cam_${cote}_1" parent="base_link"
+                  x="0" y="${signe*0.31}" z="0.45" yaw="${signe*pi/2}"/>
+    <xacro:camera nom="cam_${cote}_2" parent="base_link"
+                  x="0" y="${signe*0.31}" z="1.35" yaw="${signe*pi/2}"/>
+    <!-- sur le mat, a 2,3 / 3,2 / 4,1 m une fois deploye -->
+    <xacro:camera nom="cam_${cote}_3" parent="mat_1"
+                  x="0" y="${signe*0.31}" z="0.85" yaw="${signe*pi/2}"/>
+    <xacro:camera nom="cam_${cote}_4" parent="mat_2"
+                  x="0" y="${signe*0.31}" z="0.45" yaw="${signe*pi/2}"/>
+    <xacro:camera nom="cam_${cote}_5" parent="mat_2"
+                  x="0" y="${signe*0.31}" z="1.35" yaw="${signe*pi/2}"/>
+  </xacro:macro>
+
+  <xacro:colonne_cameras cote="g" signe="1"/>
+  <xacro:colonne_cameras cote="d" signe="-1"/>
+
+  <!-- camera avant, inclinee de 20 degres vers le haut : obstacles en hauteur -->
+  <xacro:camera nom="cam_avant" parent="base_link"
+                x="${corps_l/2 + 0.015}" y="0" z="1.4" yaw="0" pitch="${-20*pi/180}"/>
+
+  <!-- lidar 2d a l'avant, a 25 cm du sol -->
+  <link name="lidar">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.04"/></geometry>
+      <material name="noir"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.04" length="0.04"/></geometry>
+    </collision>
+    <xacro:inertie_cylindre m="0.2" r="0.04" h="0.04"/>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar"/>
+    <origin xyz="${corps_l/2 + 0.04} 0 0.2"/>
+  </joint>
+
+  <!-- capteur de distance en tete de mat, oriente vers le haut -->
+  <link name="tof_haut">
+    <visual>
+      <geometry><box size="0.02 0.04 0.02"/></geometry>
+      <material name="bleu"/>
+    </visual>
+    <xacro:inertie_boite m="0.02" x="0.02" y="0.04" z="0.02"/>
+  </link>
+  <joint name="tof_haut_joint" type="fixed">
+    <parent link="mat_2"/>
+    <child link="tof_haut"/>
+    <origin xyz="0 0 ${seg_l + 0.01}" rpy="0 ${-pi/2} 0"/>
+  </joint>
+  
 </robot>
