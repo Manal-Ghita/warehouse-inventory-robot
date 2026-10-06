@@ -57,8 +57,7 @@ if __name__ == "__main__":
     img = camera.photographier(rayonnage(reel), D_MM, 0, L_MM, H_MM, MM_PX)
     cv2.imwrite("scene_inventaire.png", img)
 
-    tol_px = 200 * camera.FX / D_MM   # 20 cm a la distance de lecture
-    observe, orphelins = associer(lire(img), tol_px)
+    observe, orphelins = associer(lire(img))
 
     lignes = comparer(observe,
                       {e: set(v) for e, v in attendu.items()},
