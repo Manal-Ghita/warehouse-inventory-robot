@@ -21,3 +21,8 @@ log/
 # micro-ros
 firmware/micro_ros_stm32cubemx_utils/microros_static_library_ide/libmicroros/
 
+# monde genere
+ros2_ws/src/entrepot_simulation/worlds/
+ros2_ws/src/entrepot_simulation/materials/
+ros2_ws/src/entrepot_simulation/verite_terrain.csv
+

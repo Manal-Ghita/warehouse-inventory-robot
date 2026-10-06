@@ -23,17 +23,24 @@ def description(context):
 
 
 def generate_launch_description():
-    gazebo = IncludeLaunchDescription(PythonLaunchDescriptionSource(
-        os.path.join(get_package_share_directory("gazebo_ros"), "launch", "gazebo.launch.py")))
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(get_package_share_directory("gazebo_ros"), "launch", "gazebo.launch.py")),
+        launch_arguments={"world": LaunchConfiguration("world")}.items())
 
     return LaunchDescription([
-        DeclareLaunchArgument("cameras", default_value="test",
-                              description="aucune, test ou toutes"),
+        DeclareLaunchArgument("cameras", default_value="test", description="aucune, test ou toutes"),
+        DeclareLaunchArgument("world", default_value="", description="monde gazebo, vide par defaut"),
+        DeclareLaunchArgument("x", default_value="0.0"),
+        DeclareLaunchArgument("y", default_value="0.0"),
+        DeclareLaunchArgument("yaw", default_value="0.0"),
         gazebo,
         OpaqueFunction(function=description),
         # pose le robot dans le monde a partir de sa description
         Node(package="gazebo_ros", executable="spawn_entity.py",
-             arguments=["-topic", "robot_description", "-entity", "robot_inventaire"]),
+             arguments=["-topic", "robot_description", "-entity", "robot_inventaire",
+                        "-x", LaunchConfiguration("x"), "-y", LaunchConfiguration("y"),
+                        "-Y", LaunchConfiguration("yaw")]),
         # demarre les controleurs une fois le robot pose
         Node(package="controller_manager", executable="spawner",
              arguments=["joint_state_broadcaster"]),
