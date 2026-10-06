@@ -10,12 +10,9 @@
   <xacro:property name="roue_e" value="0.05"/>
   <xacro:property name="voie" value="0.5"/>
   <xacro:property name="folle_r" value="0.04"/>
-  <xacro:property name="seg_l" value="1.4"/>
-  <xacro:property name="course" value="1.3"/>
-  <xacro:property name="socle_h" value="0.4"/>
-  <xacro:property name="ep" value="0.02"/>
-  <xacro:property name="fente" value="0.06"/>
-  <xacro:property name="ouverture" value="0.14"/>
+
+  <!-- maillages 3d generes par outils/generer_maillages.py -->
+  <xacro:property name="maillages" value="file://$(find robot_inventaire_description)/meshes"/>
 
   <!-- inerties des formes simples -->
   <xacro:macro name="inertie_boite" params="m x y z">
@@ -34,41 +31,17 @@
     </inertial>
   </xacro:macro>
 
-  <material name="gris"><color rgba="0.6 0.6 0.65 1"/></material>
   <material name="noir"><color rgba="0.1 0.1 0.1 1"/></material>
-  <material name="orange"><color rgba="1.0 0.5 0.1 1"/></material>
+  <material name="bleu"><color rgba="0.1 0.3 0.8 1"/></material>
 
   <!-- projection au sol, reference de la navigation -->
   <link name="base_footprint"/>
 
-  <!-- une plaque du corps -->
-  <xacro:macro name="plaque" params="x y z sx sy sz">
-    <visual>
-      <origin xyz="${x} ${y} ${z}"/>
-      <geometry><box size="${sx} ${sy} ${sz}"/></geometry>
-      <material name="gris"/>
-    </visual>
-  </xacro:macro>
-
-  <!-- corps : base_link est au bas du corps -->
+  <!-- corps : coque, socle, fourreau fixe du mat ; base_link est au bas du socle -->
   <link name="base_link">
-        <!-- corps creux : socle plein, caisse avec fente sur chaque flanc,
-         ouverture sur le dessus pour le mat et ses bras -->
-    <xacro:property name="hp" value="${corps_h - socle_h - ep}"/>
-    <xacro:property name="zp" value="${socle_h + hp/2}"/>
-    <xacro:property name="lp" value="${(corps_l - fente)/2}"/>
-    <xacro:property name="lc" value="${(corps_l - ouverture)/2}"/>
-
-    <!-- socle : batterie et lest -->
-    <xacro:plaque x="0" y="0" z="${socle_h/2}" sx="${corps_l}" sy="${corps_w}" sz="${socle_h}"/>
-    <!-- parois avant et arriere -->
-    <xacro:plaque x="${corps_l/2 - ep/2}" y="0" z="${zp}" sx="${ep}" sy="${corps_w}" sz="${hp}"/>
-    <xacro:plaque x="${-corps_l/2 + ep/2}" y="0" z="${zp}" sx="${ep}" sy="${corps_w}" sz="${hp}"/>
-    <!-- flancs pleins -->
-    <xacro:plaque x="0" y="${corps_w/2 - ep/2}" z="${zp}" sx="${corps_l}" sy="${ep}" sz="${hp}"/>
-    <xacro:plaque x="0" y="${-corps_w/2 + ep/2}" z="${zp}" sx="${corps_l}" sy="${ep}" sz="${hp}"/><!-- capot en deux parties, ouvert au milieu -->
-    <xacro:plaque x="${ouverture/2 + lc/2}" y="0" z="${corps_h - ep/2}" sx="${lc}" sy="${corps_w}" sz="${ep}"/>
-    <xacro:plaque x="${-ouverture/2 - lc/2}" y="0" z="${corps_h - ep/2}" sx="${lc}" sy="${corps_w}" sz="${ep}"/>
+    <visual>
+      <geometry><mesh filename="${maillages}/corps.dae"/></geometry>
+    </visual>
     <collision>
       <origin xyz="0 0 ${corps_h/2}"/>
       <geometry><box size="${corps_l} ${corps_w} ${corps_h}"/></geometry>
@@ -91,9 +64,7 @@
   <xacro:macro name="roue" params="nom y">
     <link name="roue_${nom}">
       <visual>
-        <origin rpy="${pi/2} 0 0"/>
-        <geometry><cylinder radius="${roue_r}" length="${roue_e}"/></geometry>
-        <material name="noir"/>
+        <geometry><mesh filename="${maillages}/roue.dae"/></geometry>
       </visual>
       <collision>
         <origin rpy="${pi/2} 0 0"/>
@@ -112,7 +83,7 @@
   <xacro:roue nom="gauche" y="${voie/2}"/>
   <xacro:roue nom="droite" y="${-voie/2}"/>
 
-  <!-- roues folles aux quatre coins -->
+  <!-- roues folles aux quatre coins, cachees sous le socle -->
   <xacro:macro name="folle" params="nom x y">
     <link name="folle_${nom}">
       <visual>
@@ -136,19 +107,19 @@
   <xacro:folle nom="ar_g" x="-0.32" y="0.22"/>
   <xacro:folle nom="ar_d" x="-0.32" y="-0.22"/>
 
-  <!-- mat telescopique : deux segments mobiles, rentres dans le corps au repos -->
-  <xacro:macro name="segment" params="nom parent cote origine_z course_max">
+  <!-- mat : fourreau fixe dans le corps + deux tubes carres emboites
+       chaque tube porte a son sommet une tete et deux rails exterieurs
+       recouvrement de 25 cm entre etages quand le mat est deploye -->
+  <xacro:macro name="segment" params="nom parent cote longueur origine_z course_max">
     <link name="${nom}">
       <visual>
-        <origin xyz="0 0 ${seg_l/2}"/>
-        <geometry><box size="${cote} ${cote} ${seg_l}"/></geometry>
-        <material name="orange"/>
+        <geometry><mesh filename="${maillages}/${nom}.dae"/></geometry>
       </visual>
       <collision>
-        <origin xyz="0 0 ${seg_l/2}"/>
-        <geometry><box size="${cote} ${cote} ${seg_l}"/></geometry>
+        <origin xyz="0 0 ${longueur/2}"/>
+        <geometry><box size="${cote} ${cote} ${longueur}"/></geometry>
       </collision>
-      <xacro:inertie_boite m="4" x="${cote}" y="${cote}" z="${seg_l}"/>
+      <xacro:inertie_boite m="5" x="${cote}" y="${cote}" z="${longueur}"/>
     </link>
     <joint name="${nom}_joint" type="prismatic">
       <parent link="${parent}"/>
@@ -159,18 +130,18 @@
     </joint>
   </xacro:macro>
 
-  <xacro:segment nom="mat_1" parent="base_link" cote="0.10" origine_z="0.1" course_max="1.3"/>
-  <xacro:segment nom="mat_2" parent="mat_1" cote="0.08" origine_z="0.12" course_max="1.2"/>
+  <xacro:segment nom="mat_1" parent="base_link" cote="0.16" longueur="1.55"
+                 origine_z="0.15" course_max="1.10"/>
+  <xacro:segment nom="mat_2" parent="mat_1" cote="0.12" longueur="1.47"
+                 origine_z="0.20" course_max="1.10"/>
 
-    <!-- ===== capteurs ===== -->
-  <material name="bleu"><color rgba="0.1 0.3 0.8 1"/></material>
+  <!-- ===== capteurs ===== -->
 
   <!-- camera gemini 335 : boitier + repere optique -->
-  <xacro:macro name="camera" params="nom parent x y z yaw pitch:=0">
+  <xacro:macro name="camera" params="nom parent x y z yaw pitch:=0 roll:=0">
     <link name="${nom}">
       <visual>
-        <geometry><box size="0.025 0.09 0.03"/></geometry>
-        <material name="bleu"/>
+        <geometry><mesh filename="${maillages}/camera.dae"/></geometry>
       </visual>
       <collision>
         <geometry><box size="0.025 0.09 0.03"/></geometry>
@@ -180,7 +151,7 @@
     <joint name="${nom}_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="${nom}"/>
-      <origin xyz="${x} ${y} ${z}" rpy="0 ${pitch} ${yaw}"/>
+      <origin xyz="${x} ${y} ${z}" rpy="${roll} ${pitch} ${yaw}"/>
     </joint>
 
     <!-- convention des images : z devant, x a droite, y en bas -->
@@ -192,67 +163,35 @@
     </joint>
   </xacro:macro>
 
-  <!-- cinq cameras par cote, gauche (g) regarde +y, droite (d) regarde -y -->
+  <!-- cinq cameras par cote, en portrait (86 degres en vertical)
+       hauteurs du sol, mat deploye : 0,50 / 1,27 / 2,17 / 3,15 / 4,00 m -->
   <xacro:macro name="colonne_cameras" params="cote signe">
-    <!-- sur le corps, en avant des rails -->
+    <!-- sur les flancs du corps -->
     <xacro:camera nom="cam_${cote}_1" parent="base_link"
-                  x="0.28" y="${signe*0.31}" z="0.45" yaw="${signe*pi/2}"/>
+                  x="0.22" y="${signe*0.3165}" z="0.45" yaw="${signe*pi/2}" roll="${pi/2}"/>
     <xacro:camera nom="cam_${cote}_2" parent="base_link"
-                  x="0.28" y="${signe*0.31}" z="1.35" yaw="${signe*pi/2}"/>
+                  x="0.22" y="${signe*0.3165}" z="1.22" yaw="${signe*pi/2}" roll="${pi/2}"/>
     <!-- rail du segment 1, en arriere -->
     <xacro:camera nom="cam_${cote}_3" parent="mat_1"
-                  x="-0.1" y="${signe*0.365}" z="0.85" yaw="${signe*pi/2}"/>
+                  x="-0.05" y="${signe*0.1425}" z="0.87" yaw="${signe*pi/2}" roll="${pi/2}"/>
     <!-- rail du segment 2, en avant -->
     <xacro:camera nom="cam_${cote}_4" parent="mat_2"
-                  x="0.1" y="${signe*0.365}" z="0.43" yaw="${signe*pi/2}"/>
+                  x="0.05" y="${signe*0.1425}" z="0.55" yaw="${signe*pi/2}" roll="${pi/2}"/>
     <xacro:camera nom="cam_${cote}_5" parent="mat_2"
-                  x="0.1" y="${signe*0.365}" z="1.33" yaw="${signe*pi/2}"/>
+                  x="0.05" y="${signe*0.1425}" z="1.40" yaw="${signe*pi/2}" roll="${pi/2}"/>
   </xacro:macro>
 
   <xacro:colonne_cameras cote="g" signe="1"/>
   <xacro:colonne_cameras cote="d" signe="-1"/>
 
-  <!-- collier au sommet d'un segment, avec un rail qui descend de chaque cote,
-       a l'exterieur du corps -->
-  <xacro:macro name="collier" params="nom parent x long">
-    <link name="${nom}">
-      <visual>
-        <origin xyz="${x/2} 0 0"/>
-        <geometry><box size="0.13 0.7 0.02"/></geometry>
-        <material name="orange"/>
-      </visual>
-      <visual>
-        <origin xyz="${x} 0.34 ${-long/2}"/>
-        <geometry><box size="0.02 0.02 ${long}"/></geometry>
-        <material name="orange"/>
-      </visual>
-      <visual>
-        <origin xyz="${x} -0.34 ${-long/2}"/>
-        <geometry><box size="0.02 0.02 ${long}"/></geometry>
-        <material name="orange"/>
-      </visual>
-      <xacro:inertie_boite m="0.5" x="0.13" y="0.7" z="${long}"/>
-    </link>
-    <joint name="${nom}_joint" type="fixed">
-      <parent link="${parent}"/>
-      <child link="${nom}"/>
-      <origin xyz="0 0 ${seg_l + 0.01}"/>
-    </joint>
-  </xacro:macro>
-
-  <xacro:collier nom="collier_1" parent="mat_1" x="-0.1" long="0.61"/>
-  <xacro:collier nom="collier_2" parent="mat_2" x="0.1" long="1.03"/>
-  
-
   <!-- camera avant, inclinee de 20 degres vers le haut : obstacles en hauteur -->
   <xacro:camera nom="cam_avant" parent="base_link"
-                x="${corps_l/2 + 0.015}" y="0" z="1.4" yaw="0" pitch="${-20*pi/180}"/>
+                x="0.4165" y="0" z="1.40" yaw="0" pitch="${-20*pi/180}"/>
 
-  <!-- lidar 2d a l'avant, a 25 cm du sol -->
+  <!-- lidar 2d sur son support avant, a 25 cm du sol -->
   <link name="lidar">
     <visual>
-      <geometry><cylinder radius="0.04" length="0.04"/></geometry>
-      <material name="noir"/>
+      <geometry><mesh filename="${maillages}/lidar.dae"/></geometry>
     </visual>
     <collision>
       <geometry><cylinder radius="0.04" length="0.04"/></geometry>
@@ -265,7 +204,7 @@
     <origin xyz="${corps_l/2 + 0.04} 0 0.2"/>
   </joint>
 
-  <!-- capteur de distance en tete de mat, oriente vers le haut -->
+  <!-- capteur de distance pose sur le chapeau du segment 2, oriente vers le haut -->
   <link name="tof_haut">
     <visual>
       <geometry><box size="0.02 0.04 0.02"/></geometry>
@@ -276,9 +215,9 @@
   <joint name="tof_haut_joint" type="fixed">
     <parent link="mat_2"/>
     <child link="tof_haut"/>
-    <origin xyz="0 0 ${seg_l + 0.01}" rpy="0 ${-pi/2} 0"/>
+    <origin xyz="0 0 1.49" rpy="0 ${-pi/2} 0"/>
   </joint>
 
-    <xacro:include filename="gazebo.xacro"/>
-  
+  <xacro:include filename="gazebo.xacro"/>
+
 </robot>
