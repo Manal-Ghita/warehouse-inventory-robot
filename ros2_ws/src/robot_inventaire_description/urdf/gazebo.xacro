@@ -81,4 +81,47 @@
     </plugin>
   </gazebo>
 
+    <!-- cameras actives : aucune, test ou toutes -->
+  <xacro:arg name="cameras" default="test"/>
+  <xacro:property name="mode_cam" value="$(arg cameras)"/>
+
+  <xacro:macro name="camera_gazebo" params="nom">
+    <xacro:if value="${mode_cam == 'toutes' or (mode_cam == 'test' and nom in ['cam_g_1', 'cam_g_4'])}">
+      <gazebo reference="${nom}">
+        <sensor name="${nom}" type="camera">
+          <always_on>true</always_on>
+          <update_rate>2</update_rate>
+          <visualize>false</visualize>
+          <camera>
+            <!-- gemini 335 : 86 degres, 1920 x 1080 -->
+            <horizontal_fov>1.501</horizontal_fov>
+            <image>
+              <width>1920</width>
+              <height>1080</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip><near>0.1</near><far>10.0</far></clip>
+            <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
+          </camera>
+          <plugin name="${nom}_plugin" filename="libgazebo_ros_camera.so">
+            <camera_name>${nom}</camera_name>
+            <frame_name>${nom}_optique</frame_name>
+          </plugin>
+        </sensor>
+      </gazebo>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:camera_gazebo nom="cam_g_1"/>
+  <xacro:camera_gazebo nom="cam_g_2"/>
+  <xacro:camera_gazebo nom="cam_g_3"/>
+  <xacro:camera_gazebo nom="cam_g_4"/>
+  <xacro:camera_gazebo nom="cam_g_5"/>
+  <xacro:camera_gazebo nom="cam_d_1"/>
+  <xacro:camera_gazebo nom="cam_d_2"/>
+  <xacro:camera_gazebo nom="cam_d_3"/>
+  <xacro:camera_gazebo nom="cam_d_4"/>
+  <xacro:camera_gazebo nom="cam_d_5"/>
+  <xacro:camera_gazebo nom="cam_avant"/>
+
 </robot>
