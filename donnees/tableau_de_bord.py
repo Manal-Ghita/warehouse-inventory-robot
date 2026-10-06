@@ -1,10 +1,11 @@
 import pandas as pd
 import streamlit as st
+from pathlib import Path
 
 from base import connexion
 
 st.set_page_config(page_title="Inventaire entrepot", layout="wide")
-con = connexion()
+con = connexion(Path(__file__).resolve().parent / "serveur.db")
 
 tournees = pd.read_sql_query(
     "SELECT id, debut, fin, zone FROM tournees ORDER BY id DESC", con)
@@ -32,7 +33,7 @@ st.subheader("Écarts")
 statuts = ["manquant", "mal_range", "inconnu"]
 filtre = st.multiselect("Statuts", statuts, default=statuts)
 ec = res[res["statut"].isin(filtre)].sort_values(["emplacement", "statut"])
-st.dataframe(ec, use_container_width=True, hide_index=True)
+st.dataframe(ec, width="stretch", hide_index=True)
 st.download_button("Télécharger le rapport (CSV)",
                    ec.to_csv(index=False).encode("utf-8"),
                    file_name=f"ecarts_tournee_{choix}.csv", mime="text/csv")

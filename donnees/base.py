@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS tournees (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   debut TEXT NOT NULL,
   fin TEXT,
-  zone TEXT
+  zone TEXT,
+  envoyee INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS resultats (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +40,10 @@ def connexion(chemin=CHEMIN):
 
 def initialiser(con):
     con.executescript(SCHEMA)
+    # bases creees avant le suivi des envois
+    colonnes = [r[1] for r in con.execute("PRAGMA table_info(tournees)")]
+    if "envoyee" not in colonnes:
+        con.execute("ALTER TABLE tournees ADD COLUMN envoyee INTEGER NOT NULL DEFAULT 0")
     # referentiel de l'entrepot, recharge depuis le dataset
     pd.read_csv(RACINE / "data/processed/emplacements.csv").to_sql(
         "emplacements", con, if_exists="replace", index=False)
@@ -86,3 +91,30 @@ def ecarts(con, tournee_id):
         "SELECT emplacement, produit, statut FROM resultats "
         "WHERE tournee_id = ? AND statut != 'conforme' "
         "ORDER BY emplacement, statut", con, params=(tournee_id,))
+
+
+# ---------- envoi differe ----------
+
+def a_envoyer(con):
+    """tournees terminees pas encore recues par le serveur, dans l'ordre"""
+    return [r[0] for r in con.execute(
+        "SELECT id FROM tournees WHERE fin IS NOT NULL AND envoyee = 0 ORDER BY id")]
+
+
+def paquet(con, tournee_id, robot):
+    """une tournee et ses resultats, prets a envoyer en json"""
+    t = con.execute("SELECT id, debut, fin, zone FROM tournees WHERE id = ?",
+                    (tournee_id,)).fetchone()
+    res = con.execute(
+        "SELECT emplacement, produit, statut, horodatage FROM resultats WHERE tournee_id = ?",
+        (tournee_id,)).fetchall()
+    return {
+        "robot": robot,
+        "tournee": dict(zip(("id", "debut", "fin", "zone"), t)),
+        "resultats": [dict(zip(("emplacement", "produit", "statut", "horodatage"), r)) for r in res],
+    }
+
+
+def marquer_envoyee(con, tournee_id):
+    con.execute("UPDATE tournees SET envoyee = 1 WHERE id = ?", (tournee_id,))
+    con.commit()
